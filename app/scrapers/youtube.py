@@ -6,18 +6,18 @@ filters by date, and retrieves transcripts using youtube-transcript-api.
 """
 
 import logging
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
 
 import httpx
+from pydantic import BaseModel, Field
 from youtube_transcript_api import YouTubeTranscriptApi
 
 logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-YOUTUBE_RSS_BASE = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+YOUTUBE_RSS_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 YOUTUBE_VIDEO_URL = "https://www.youtube.com/watch?v={video_id}"
 
 # XML namespaces used in the YouTube Atom feed
@@ -30,8 +30,13 @@ NS = {
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
 
-@dataclass
-class VideoInfo:
+class TranscriptInfo(BaseModel):
+    """Transcript content for a YouTube video."""
+
+    text: str
+
+
+class VideoInfo(BaseModel):
     """Represents a single YouTube video extracted from the RSS feed."""
 
     video_id: str
@@ -41,190 +46,206 @@ class VideoInfo:
     channel_name: str
     channel_id: str
     thumbnail_url: str | None = None
-    transcript: str | None = None
+    transcript: TranscriptInfo | None = None
 
 
-@dataclass
-class ChannelFetchResult:
+class ChannelFetchResult(BaseModel):
     """Result of fetching videos from a single channel."""
 
     channel_id: str
     channel_name: str | None = None
-    videos: list[VideoInfo] = field(default_factory=list)
+    videos: list[VideoInfo] = Field(default_factory=list)
     error: str | None = None
 
 
-# ── Core Functions ───────────────────────────────────────────────────────────
+# ── Service Class ────────────────────────────────────────────────────────────
 
 
-def fetch_channel_feed(channel_id: str) -> ChannelFetchResult:
+class YouTubeScraper:
     """
-    Fetch the RSS feed for a YouTube channel and parse all video entries.
+    Service that fetches recent videos from YouTube channels via RSS
+    and optionally retrieves their transcripts.
 
-    Args:
-        channel_id: The YouTube channel ID (e.g. "UCbfYPyITQ-7l4upoX8nvctg").
+    Usage:
+        scraper = YouTubeScraper(channel_ids=["UCYO_jab_esuFRV4b17AJtAw"])
+        videos = scraper.get_latest_videos(since=datetime(...))
 
-    Returns:
-        ChannelFetchResult with parsed videos or an error message.
+        for video in videos:
+            print(video.title, video.transcript)
     """
-    url = YOUTUBE_RSS_BASE.format(channel_id=channel_id)
-    result = ChannelFetchResult(channel_id=channel_id)
 
-    try:
-        resp = httpx.get(url, timeout=15, follow_redirects=True)
-        resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        result.error = f"HTTP error fetching feed: {exc}"
-        logger.error(result.error)
-        return result
+    def __init__(
+        self,
+        channel_ids: list[str],
+        transcript_languages: list[str] | None = None,
+    ):
+        """
+        Args:
+            channel_ids:          List of YouTube channel IDs to monitor.
+            transcript_languages: Preferred transcript language codes. Defaults to ["en"].
+        """
+        self.channel_ids = channel_ids
+        self.transcript_languages = transcript_languages or ["en"]
+        self._http_client = httpx.Client(timeout=15, follow_redirects=True)
+        self._transcript_api = YouTubeTranscriptApi()
 
-    try:
-        root = ET.fromstring(resp.text)
-    except ET.ParseError as exc:
-        result.error = f"XML parse error: {exc}"
-        logger.error(result.error)
-        return result
+    # ── Public API ───────────────────────────────────────────────────────
 
-    # Channel metadata
-    title_el = root.find("atom:title", NS)
-    result.channel_name = title_el.text if title_el is not None else channel_id
+    def get_latest_videos(
+        self,
+        since: datetime,
+        fetch_transcripts: bool = True,
+    ) -> list[VideoInfo]:
+        """
+        Main entry point: fetch recent videos from all configured channels.
 
-    # Parse each <entry>
-    for entry in root.findall("atom:entry", NS):
-        video = _parse_entry(entry, result.channel_name, channel_id)
-        if video:
-            result.videos.append(video)
+        Args:
+            since:             Only include videos published after this datetime.
+            fetch_transcripts: If True, also retrieve video transcripts.
 
-    logger.info(
-        "Fetched %d videos from channel '%s' (%s)",
-        len(result.videos),
-        result.channel_name,
-        channel_id,
-    )
-    return result
+        Returns:
+            List of VideoInfo objects, sorted newest-first.
+        """
+        all_videos: list[VideoInfo] = []
 
+        for channel_id in self.channel_ids:
+            result = self.fetch_channel_feed(channel_id)
 
-def _parse_entry(
-    entry: ET.Element, channel_name: str, channel_id: str
-) -> VideoInfo | None:
-    """Parse a single <entry> element into a VideoInfo."""
+            if result.error:
+                logger.error("Skipping channel %s: %s", channel_id, result.error)
+                continue
 
-    video_id_el = entry.find("yt:videoId", NS)
-    title_el = entry.find("atom:title", NS)
-    published_el = entry.find("atom:published", NS)
+            recent = self._filter_by_date(result.videos, since)
+            logger.info(
+                "Channel '%s': %d new videos since %s",
+                result.channel_name,
+                len(recent),
+                since.isoformat(),
+            )
 
-    if video_id_el is None or title_el is None or published_el is None:
-        return None
+            if fetch_transcripts:
+                for video in recent:
+                    transcript_text = self.fetch_transcript(video.video_id)
+                    if transcript_text:
+                        video.transcript = TranscriptInfo(text=transcript_text)
 
-    video_id = video_id_el.text
-    title = title_el.text
-    published_at = datetime.fromisoformat(published_el.text)
+            all_videos.extend(recent)
 
-    # Thumbnail
-    thumbnail_el = entry.find("media:group/media:thumbnail", NS)
-    thumbnail_url = thumbnail_el.get("url") if thumbnail_el is not None else None
+        all_videos.sort(key=lambda v: v.published_at, reverse=True)
+        return all_videos
 
-    return VideoInfo(
-        video_id=video_id,
-        title=title,
-        url=YOUTUBE_VIDEO_URL.format(video_id=video_id),
-        published_at=published_at,
-        channel_name=channel_name,
-        channel_id=channel_id,
-        thumbnail_url=thumbnail_url,
-    )
+    def fetch_channel_feed(self, channel_id: str) -> ChannelFetchResult:
+        """
+        Fetch the RSS feed for a single YouTube channel and parse all entries.
 
+        Args:
+            channel_id: The YouTube channel ID (e.g. "UCbfYPyITQ-7l4upoX8nvctg").
 
-def filter_videos_by_date(
-    videos: list[VideoInfo],
-    since: datetime,
-) -> list[VideoInfo]:
-    """
-    Filter a list of videos to only include those published after *since*.
+        Returns:
+            ChannelFetchResult with parsed videos or an error message.
+        """
+        url = YOUTUBE_RSS_URL.format(channel_id=channel_id)
+        result = ChannelFetchResult(channel_id=channel_id)
 
-    Args:
-        videos: List of VideoInfo objects.
-        since:  Timezone-aware datetime. Videos published after this are kept.
+        try:
+            resp = self._http_client.get(url)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            result.error = f"HTTP error fetching feed: {exc}"
+            logger.error(result.error)
+            return result
 
-    Returns:
-        Filtered list, sorted newest-first.
-    """
-    # Ensure `since` is timezone-aware
-    if since.tzinfo is None:
-        since = since.replace(tzinfo=timezone.utc)
+        try:
+            root = ET.fromstring(resp.text)
+        except ET.ParseError as exc:
+            result.error = f"XML parse error: {exc}"
+            logger.error(result.error)
+            return result
 
-    filtered = [v for v in videos if v.published_at >= since]
-    filtered.sort(key=lambda v: v.published_at, reverse=True)
-    return filtered
+        # Channel metadata
+        title_el = root.find("atom:title", NS)
+        result.channel_name = title_el.text if title_el is not None else channel_id
 
+        # Parse each <entry>
+        for entry in root.findall("atom:entry", NS):
+            video = self._parse_entry(entry, result.channel_name, channel_id)
+            if video:
+                result.videos.append(video)
 
-def fetch_transcript(video_id: str, languages: list[str] | None = None) -> str | None:
-    """
-    Attempt to fetch the transcript for a YouTube video.
-
-    Args:
-        video_id:  The YouTube video ID.
-        languages: Preferred language codes, e.g. ["en"]. Defaults to ["en"].
-
-    Returns:
-        The full transcript as a single string, or None if unavailable.
-    """
-    if languages is None:
-        languages = ["en"]
-
-    try:
-        ytt_api = YouTubeTranscriptApi()
-        fetched = ytt_api.fetch(video_id, languages=languages)
-        # Join all snippet texts into a single string
-        full_text = " ".join(snippet.text for snippet in fetched)
-        logger.info("Fetched transcript for video %s (%d chars)", video_id, len(full_text))
-        return full_text
-    except Exception as exc:
-        logger.warning("Could not fetch transcript for video %s: %s", video_id, exc)
-        return None
-
-
-# ── High-Level Orchestrator ──────────────────────────────────────────────────
-
-
-def get_latest_videos(
-    channel_ids: list[str],
-    since: datetime,
-    fetch_transcripts: bool = True,
-) -> list[VideoInfo]:
-    """
-    Main entry point: fetch recent videos from multiple channels.
-
-    Args:
-        channel_ids:       List of YouTube channel IDs.
-        since:             Only include videos published after this datetime.
-        fetch_transcripts: If True, also retrieve video transcripts.
-
-    Returns:
-        List of VideoInfo objects for all new videos across all channels.
-    """
-    all_videos: list[VideoInfo] = []
-
-    for cid in channel_ids:
-        result = fetch_channel_feed(cid)
-
-        if result.error:
-            logger.error("Skipping channel %s: %s", cid, result.error)
-            continue
-
-        recent = filter_videos_by_date(result.videos, since)
         logger.info(
-            "Channel '%s': %d new videos since %s",
+            "Fetched %d videos from channel '%s' (%s)",
+            len(result.videos),
             result.channel_name,
-            len(recent),
-            since.isoformat(),
+            channel_id,
+        )
+        return result
+
+    def fetch_transcript(self, video_id: str) -> str | None:
+        """
+        Fetch the transcript for a YouTube video.
+
+        Args:
+            video_id: The YouTube video ID.
+
+        Returns:
+            The full transcript as a single string, or None if unavailable.
+        """
+        try:
+            fetched = self._transcript_api.fetch(
+                video_id, languages=self.transcript_languages
+            )
+            full_text = " ".join(snippet.text for snippet in fetched)
+            logger.info(
+                "Fetched transcript for video %s (%d chars)", video_id, len(full_text)
+            )
+            return full_text
+        except Exception as exc:
+            logger.warning(
+                "Could not fetch transcript for video %s: %s", video_id, exc
+            )
+            return None
+
+    # ── Private Helpers ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_entry(
+        entry: ET.Element, channel_name: str, channel_id: str
+    ) -> VideoInfo | None:
+        """Parse a single <entry> element from the RSS feed into a VideoInfo."""
+
+        video_id_el = entry.find("yt:videoId", NS)
+        title_el = entry.find("atom:title", NS)
+        published_el = entry.find("atom:published", NS)
+
+        if video_id_el is None or title_el is None or published_el is None:
+            return None
+
+        video_id = video_id_el.text
+        title = title_el.text
+        published_at = datetime.fromisoformat(published_el.text)
+
+        # Thumbnail
+        thumbnail_el = entry.find("media:group/media:thumbnail", NS)
+        thumbnail_url = thumbnail_el.get("url") if thumbnail_el is not None else None
+
+        return VideoInfo(
+            video_id=video_id,
+            title=title,
+            url=YOUTUBE_VIDEO_URL.format(video_id=video_id),
+            published_at=published_at,
+            channel_name=channel_name,
+            channel_id=channel_id,
+            thumbnail_url=thumbnail_url,
         )
 
-        if fetch_transcripts:
-            for video in recent:
-                video.transcript = fetch_transcript(video.video_id)
+    @staticmethod
+    def _filter_by_date(
+        videos: list[VideoInfo], since: datetime
+    ) -> list[VideoInfo]:
+        """Return only videos published after *since*, sorted newest-first."""
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)
 
-        all_videos.extend(recent)
-
-    all_videos.sort(key=lambda v: v.published_at, reverse=True)
-    return all_videos
+        filtered = [v for v in videos if v.published_at >= since]
+        filtered.sort(key=lambda v: v.published_at, reverse=True)
+        return filtered
