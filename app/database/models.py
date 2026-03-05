@@ -79,6 +79,7 @@ class Digest(Base):
     url = Column(String, nullable=False)           # copied from article for convenience
     title = Column(String, nullable=False)         # LLM-generated title
     summary = Column(Text, nullable=False)         # 2-3 sentence LLM summary
+    sent_at = Column(DateTime(timezone=True), nullable=True)  # NULL = unsent
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,

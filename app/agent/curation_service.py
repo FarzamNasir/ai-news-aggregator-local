@@ -1,7 +1,7 @@
 """
 Curation Service
 
-Pulls recent digests from the database, runs the Curator agent to
+Pulls recent unsent digests from the database, runs the Curator agent to
 score and rank them, and returns the ranked results.
 """
 
@@ -22,7 +22,7 @@ def curate_digests(
     lookback_hours: int = 24,
 ) -> list[dict]:
     """
-    Score and rank recent digests by user relevance.
+    Score and rank recent unsent digests by user relevance.
 
     Args:
         session:        Active SQLAlchemy session.
@@ -30,23 +30,25 @@ def curate_digests(
 
     Returns:
         List of dicts with digest info + score + reason, sorted by score desc.
+        Only includes digests that haven't been sent yet.
     """
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
-    # Filter by article PUBLISH date, not digest creation date
+    # Filter by article PUBLISH date + exclude already-sent digests
     stmt = (
         select(Digest)
         .join(Article, Digest.article_id == Article.id)
         .where(Article.published_at >= since)
+        .where(Digest.sent_at.is_(None))  # only unsent digests
         .order_by(Article.published_at.desc())
     )
     digests = list(session.execute(stmt).scalars().all())
 
     if not digests:
-        logger.info("No digests found in the last %d hours.", lookback_hours)
+        logger.info("No unsent digests found in the last %d hours.", lookback_hours)
         return []
 
-    logger.info("Found %d digests to curate.", len(digests))
+    logger.info("Found %d unsent digests to curate.", len(digests))
 
     # Build input for the curator
     digest_items = [
@@ -70,6 +72,7 @@ def curate_digests(
         digest = digest_lookup.get(item.id)
         if digest:
             ranked_results.append({
+                "digest_id": str(digest.id),
                 "title": digest.title,
                 "summary": digest.summary,
                 "url": digest.url,
@@ -78,3 +81,4 @@ def curate_digests(
             })
 
     return ranked_results
+

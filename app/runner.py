@@ -177,7 +177,6 @@ def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
     print("\n-- Curated Digest (ranked by relevance) --")
     session = get_session()
     ranked = curate_digests(session, lookback_hours=lookback_hours)
-    session.close()
 
     for i, item in enumerate(ranked, 1):
         print(f"\n  {i}. [{item['score']}/10] {item['title']}")
@@ -206,9 +205,21 @@ def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
             sent = send_email(email)
             if sent:
                 print("\n  \u2705 Email sent successfully!")
+
+                # Step 4: Mark sent digests so they aren't re-sent
+                sent_ids = [item["digest_id"] for item in email.items if "digest_id" in item]
+                if sent_ids:
+                    from app.database.models import Digest
+                    now = datetime.now(timezone.utc)
+                    session.query(Digest).filter(
+                        Digest.id.in_(sent_ids)
+                    ).update({"sent_at": now}, synchronize_session="fetch")
+                    session.commit()
+                    logger.info("Marked %d digests as sent.", len(sent_ids))
             else:
                 print("\n  \u274c Email sending failed. Check SMTP config in .env")
 
+    session.close()
     print(f"\n  Pipeline finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 

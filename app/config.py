@@ -1,8 +1,21 @@
 """
 Configuration for the AI News Aggregator.
 
-YouTube channels and scraper settings are stored here.
+YouTube channels, environment settings, and scraper config.
 """
+
+import os
+
+# ── Environment ──────────────────────────────────────────────────────────────
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "local")  # "local" or "production"
+
+def is_production() -> bool:
+    return ENVIRONMENT == "production"
+
+def is_local() -> bool:
+    return ENVIRONMENT == "local"
+
 
 # ── YouTube Channels to Monitor ──────────────────────────────────────────────
 # Add channel IDs here. To find a channel ID:
