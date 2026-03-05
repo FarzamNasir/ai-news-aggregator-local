@@ -4,23 +4,33 @@ An automated pipeline that scrapes AI news from multiple sources, generates LLM-
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Pipeline Flow                          │
-│                                                             │
-│  ┌──────────┐   ┌─────────┐   ┌─────────┐   ┌───────────┐ │
-│  │  Scrape   │──▸│ Digest  │──▸│ Curate  │──▸│   Email   │ │
-│  │ YouTube   │   │  Agent  │   │  Agent  │   │   Agent   │ │
-│  │ OpenAI    │   │ GPT-4.1 │   │ GPT-4.1 │   │ GPT-4.1   │ │
-│  │ Anthropic │   │  mini   │   │  mini   │   │  mini     │ │
-│  └──────────┘   └─────────┘   └─────────┘   └───────────┘ │
-│       │              │              │              │        │
-│       ▼              ▼              ▼              ▼        │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              PostgreSQL Database                     │   │
-│  │  articles │ digests (with sent_at tracking)          │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Sources
+        YT["🎬 YouTube\nRSS + Transcripts"]
+        OA["🤖 OpenAI Blog\nRSS Feed"]
+        AN["🔬 Anthropic Blog\nRSS Feeds"]
+    end
+
+    subgraph Pipeline
+        S["⛏️ Scraper\nFetch & Deduplicate"]
+        D["📝 Digest Agent\nGPT-4.1 mini\nTitle + Summary"]
+        C["🎯 Curator Agent\nGPT-4.1 mini\nRelevance Scoring"]
+        E["✉️ Email Agent\nGPT-4.1 mini\nPersonalized Intro"]
+    end
+
+    DB[("🗄️ PostgreSQL\narticles · digests")]
+    SMTP["📬 Gmail SMTP\nHTML Email"]
+
+    YT --> S
+    OA --> S
+    AN --> S
+    S --> DB
+    DB --> D
+    D --> DB
+    DB --> C
+    C --> E
+    E --> SMTP
 ```
 
 **Step 1 — Scrape**: Fetches recent content from YouTube (RSS + transcripts), OpenAI blog (RSS), and Anthropic blog (RSS). Deduplicates by URL.
