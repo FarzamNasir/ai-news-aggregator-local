@@ -17,7 +17,8 @@ from app.config import YOUTUBE_CHANNELS, LOOKBACK_HOURS
 from app.scrapers.youtube import YouTubeScraper, VideoInfo
 from app.scrapers.openai_blog import OpenAIScraper, ArticleInfo
 from app.scrapers.anthropic_blog import AnthropicScraper, AnthropicArticle
-from app.database.connection import get_session
+from app.database.connection import get_session, engine
+from app.database.models import Base
 from app.database.repository import ArticleRepository
 from app.agent.digest_service import process_digests
 from app.agent.curation_service import curate_digests
@@ -149,6 +150,9 @@ def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
     print(f"  Pipeline started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Lookback: {lookback_hours} hours")
     print(f"{'=' * 60}\n")
+
+    # Ensure tables exist (idempotent — safe to call every run)
+    Base.metadata.create_all(engine)
 
     # Step 1: Scrape + save + generate digests
     result = run_scrapers(lookback_hours=lookback_hours)
