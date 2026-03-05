@@ -20,6 +20,8 @@ from app.scrapers.anthropic_blog import AnthropicScraper, AnthropicArticle
 from app.database.connection import get_session
 from app.database.repository import ArticleRepository
 from app.agent.digest_service import process_digests
+from app.agent.curation_service import curate_digests
+from app.agent.email_agent import EmailAgent
 
 logger = logging.getLogger(__name__)
 
@@ -160,3 +162,33 @@ if __name__ == "__main__":
         print("\n-- Anthropic Articles --")
         for a in result.anthropic_articles:
             print(f"  [{a.published_at.strftime('%Y-%m-%d')}] [{a.feed_source}] {a.title}")
+
+    # ── Curate and rank ──────────────────────────────────────────────────
+    print("\n-- Curated Digest (ranked by relevance) --")
+    session = get_session()
+    ranked = curate_digests(session, lookback_hours=LOOKBACK_HOURS)
+    session.close()
+
+    for i, item in enumerate(ranked, 1):
+        print(f"\n  {i}. [{item['score']}/10] {item['title']}")
+        print(f"     {item['summary']}")
+        print(f"     Reason: {item['reason']}")
+        print(f"     {item['url']}")
+
+    # ── Compose email ────────────────────────────────────────────────────
+    if ranked:
+        email_agent = EmailAgent()
+        email = email_agent.compose(ranked)
+
+        if email:
+            print("\n" + "=" * 60)
+            print(f"  SUBJECT: {email.subject}")
+            print("=" * 60)
+            print(f"\n  {email.greeting}")
+            print(f"  {email.intro}")
+            print(f"\n  {'_' * 56}")
+            for i, item in enumerate(email.items, 1):
+                print(f"\n  {i}. {item['title']}")
+                print(f"     {item['summary']}")
+                print(f"     {item['url']}")
+            print("\n" + "=" * 60)
