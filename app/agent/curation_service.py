@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from app.database.models import Digest
+from app.database.models import Digest, Article
 from app.agent.curator import Curator, ScoredItem
 
 logger = logging.getLogger(__name__)
@@ -26,17 +26,19 @@ def curate_digests(
 
     Args:
         session:        Active SQLAlchemy session.
-        lookback_hours: How far back to look for digests.
+        lookback_hours: How far back to look for articles (by publish date).
 
     Returns:
         List of dicts with digest info + score + reason, sorted by score desc.
     """
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
+    # Filter by article PUBLISH date, not digest creation date
     stmt = (
         select(Digest)
-        .where(Digest.created_at >= since)
-        .order_by(Digest.created_at.desc())
+        .join(Article, Digest.article_id == Article.id)
+        .where(Article.published_at >= since)
+        .order_by(Article.published_at.desc())
     )
     digests = list(session.execute(stmt).scalars().all())
 

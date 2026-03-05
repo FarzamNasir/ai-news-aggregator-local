@@ -141,12 +141,17 @@ def run_scrapers(
     return result
 
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s | %(name)s | %(message)s",
-    )
-    result = run_scrapers()
+def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
+    """
+    Run the complete pipeline: scrape → digest → curate → email.
+    """
+    print(f"\n{'=' * 60}")
+    print(f"  Pipeline started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Lookback: {lookback_hours} hours")
+    print(f"{'=' * 60}\n")
+
+    # Step 1: Scrape + save + generate digests
+    result = run_scrapers(lookback_hours=lookback_hours)
     print("\n" + result.summary())
 
     if result.youtube_videos:
@@ -164,10 +169,10 @@ if __name__ == "__main__":
         for a in result.anthropic_articles:
             print(f"  [{a.published_at.strftime('%Y-%m-%d')}] [{a.feed_source}] {a.title}")
 
-    # ── Curate and rank ──────────────────────────────────────────────────
+    # Step 2: Curate and rank
     print("\n-- Curated Digest (ranked by relevance) --")
     session = get_session()
-    ranked = curate_digests(session, lookback_hours=LOOKBACK_HOURS)
+    ranked = curate_digests(session, lookback_hours=lookback_hours)
     session.close()
 
     for i, item in enumerate(ranked, 1):
@@ -176,7 +181,7 @@ if __name__ == "__main__":
         print(f"     Reason: {item['reason']}")
         print(f"     {item['url']}")
 
-    # ── Compose email ────────────────────────────────────────────────────
+    # Step 3: Compose and send email
     if ranked:
         email_agent = EmailAgent()
         email = email_agent.compose(ranked)
@@ -194,9 +199,39 @@ if __name__ == "__main__":
                 print(f"     {item['url']}")
             print("\n" + "=" * 60)
 
-            # ── Send email ──────────────────────────────────────────────
             sent = send_email(email)
             if sent:
                 print("\n  \u2705 Email sent successfully!")
             else:
                 print("\n  \u274c Email sending failed. Check SMTP config in .env")
+
+    print(f"\n  Pipeline finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+
+if __name__ == "__main__":
+    import sys
+    import time
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s | %(name)s | %(message)s",
+    )
+
+    if "--schedule" in sys.argv:
+        INTERVAL_HOURS = 24
+        print(f"Scheduler started. Will run every {INTERVAL_HOURS} hours.")
+        print("Press Ctrl+C to stop.\n")
+
+        while True:
+            try:
+                run_full_pipeline()
+                next_run = datetime.now() + timedelta(hours=INTERVAL_HOURS)
+                print(f"\n  Next run at: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"  Sleeping for {INTERVAL_HOURS} hours...\n")
+                time.sleep(INTERVAL_HOURS * 3600)
+            except KeyboardInterrupt:
+                print("\n\nScheduler stopped.")
+                break
+    else:
+        run_full_pipeline()
+
