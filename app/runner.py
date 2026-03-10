@@ -232,6 +232,13 @@ if __name__ == "__main__":
         format="%(levelname)s | %(name)s | %(message)s",
     )
 
+    # --reset: drop all tables and recreate from scratch
+    if "--reset" in sys.argv:
+        print("\n⚠️  Resetting database — dropping all tables...")
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        print("✅ Tables recreated from scratch.\n")
+
     if "--schedule" in sys.argv:
         INTERVAL_HOURS = 24
         print(f"Scheduler started. Will run every {INTERVAL_HOURS} hours.")
@@ -249,4 +256,5 @@ if __name__ == "__main__":
                 break
     else:
         run_full_pipeline()
+
 
