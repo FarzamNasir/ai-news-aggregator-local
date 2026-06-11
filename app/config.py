@@ -24,7 +24,7 @@ def is_local() -> bool:
 YOUTUBE_CHANNELS = [
     "UCbfYPyITQ-7l4upoX8nvctg",  # Two Minute Papers
     "UCYO_jab_esuFRV4b17AJtAw",  # 3Blue1Brown
-    "UCZHItN4EWJ932jYq23y4s_Q",  # Yannic Kilcher
+    "UCZHmQk67mSJgfCCTn7xBfew",  # Yannic Kilcher
     "UCNJ1Ymd5yFuUPtn21xtRbbw",  # AI Explained
 ]
 

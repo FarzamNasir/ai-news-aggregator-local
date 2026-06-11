@@ -1,16 +1,19 @@
 """
-Database Migration: Add new SourceType enum values
+Fix: Add UPPERCASE enum values to match what SQLAlchemy sends.
 
-Run once against the production database to add the new enum values
-required by the HuggingFace, Meta AI, and arXiv scrapers.
+SQLAlchemy uses enum .name (HUGGINGFACE, META_AI, ARXIV) not .value
+(huggingface, meta_ai, arxiv) when inserting into Postgres native enums.
+The original migration added lowercase values, which don't match.
+
+This script adds the uppercase versions. The stale lowercase ones are
+harmless (Postgres ignores unused enum values).
 
 Usage:
-    uv run python migrate_source_types.py
+    uv run python fix_enum_casing.py
 """
 import os
 import sys
 
-# Allow running without .env by passing DATABASE_URL directly
 if len(sys.argv) > 1:
     os.environ["DATABASE_URL"] = sys.argv[1]
 
@@ -20,17 +23,17 @@ load_dotenv()
 from sqlalchemy import text
 from app.database.connection import engine
 
+# SQLAlchemy sends enum NAME (uppercase), not VALUE (lowercase)
 NEW_VALUES = ["HUGGINGFACE", "META_AI", "ARXIV"]
 
 
-def add_enum_values():
+def fix_enum_casing():
     print("=" * 55)
-    print("  Migrating SourceType enum — adding new values")
+    print("  Fixing SourceType enum — adding UPPERCASE values")
     print("=" * 55)
 
     with engine.begin() as conn:
         for value in NEW_VALUES:
-            # Check if value already exists to make this idempotent
             result = conn.execute(
                 text(
                     "SELECT EXISTS ("
@@ -45,17 +48,29 @@ def add_enum_values():
             already_exists = result.scalar()
 
             if already_exists:
-                print(f"  [SKIP] '{value}' already exists in enum")
+                print(f"  [SKIP] '{value}' already exists")
             else:
                 conn.execute(
                     text(f"ALTER TYPE sourcetype ADD VALUE '{value}'")
                 )
                 print(f"  [OK]   Added '{value}' to sourcetype enum")
 
+    # Verify final state
     print()
-    print("  Migration complete!")
+    rows = conn.execute(text(
+        "SELECT enumlabel FROM pg_enum e "
+        "JOIN pg_type t ON t.oid = e.enumtypid "
+        "WHERE t.typname = 'sourcetype' "
+        "ORDER BY e.enumsortorder"
+    ))
+    print("  Final enum values:")
+    for row in rows:
+        print(f"    '{row[0]}'")
+
+    print()
+    print("  Fix complete!")
     print("=" * 55)
 
 
 if __name__ == "__main__":
-    add_enum_values()
+    fix_enum_casing()
