@@ -24,6 +24,9 @@ class SourceType(str, enum.Enum):
     YOUTUBE = "youtube"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    HUGGINGFACE = "huggingface"
+    META_AI = "meta_ai"
+    ARXIV = "arxiv"
 
 
 class Article(Base):

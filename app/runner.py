@@ -1,8 +1,8 @@
 """
 Scraper Runner
 
-Orchestrates all scrapers (YouTube, OpenAI, Anthropic), collects
-recent content, and persists it to the database.
+Orchestrates all scrapers (YouTube, OpenAI, Anthropic, HuggingFace,
+Meta AI, arXiv), collects recent content, and persists it to the database.
 """
 
 import logging
@@ -13,10 +13,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.config import YOUTUBE_CHANNELS, LOOKBACK_HOURS
+from app.config import YOUTUBE_CHANNELS, LOOKBACK_HOURS, ARXIV_MAX_RESULTS
 from app.scrapers.youtube import YouTubeScraper, VideoInfo
 from app.scrapers.openai_blog import OpenAIScraper, ArticleInfo
 from app.scrapers.anthropic_blog import AnthropicScraper, AnthropicArticle
+from app.scrapers.huggingface_blog import HuggingFaceScraper, HuggingFaceArticle
+from app.scrapers.meta_ai_blog import MetaAIScraper, MetaAIArticle
+from app.scrapers.arxiv_scraper import ArXivScraper, ArXivPaper
 from app.database.connection import get_session, engine
 from app.database.models import Base, Digest
 from app.database.repository import ArticleRepository
@@ -35,30 +38,53 @@ class ScrapeResult:
     youtube_videos: list[VideoInfo] = field(default_factory=list)
     openai_articles: list[ArticleInfo] = field(default_factory=list)
     anthropic_articles: list[AnthropicArticle] = field(default_factory=list)
+    huggingface_articles: list[HuggingFaceArticle] = field(default_factory=list)
+    meta_ai_articles: list[MetaAIArticle] = field(default_factory=list)
+    arxiv_papers: list[ArXivPaper] = field(default_factory=list)
     scraped_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # DB insert counts
     youtube_inserted: int = 0
     openai_inserted: int = 0
     anthropic_inserted: int = 0
+    huggingface_inserted: int = 0
+    meta_ai_inserted: int = 0
+    arxiv_inserted: int = 0
     digests_created: int = 0
 
     @property
     def total_items(self) -> int:
-        return len(self.youtube_videos) + len(self.openai_articles) + len(self.anthropic_articles)
+        return (
+            len(self.youtube_videos)
+            + len(self.openai_articles)
+            + len(self.anthropic_articles)
+            + len(self.huggingface_articles)
+            + len(self.meta_ai_articles)
+            + len(self.arxiv_papers)
+        )
 
     @property
     def total_inserted(self) -> int:
-        return self.youtube_inserted + self.openai_inserted + self.anthropic_inserted
+        return (
+            self.youtube_inserted
+            + self.openai_inserted
+            + self.anthropic_inserted
+            + self.huggingface_inserted
+            + self.meta_ai_inserted
+            + self.arxiv_inserted
+        )
 
     def summary(self) -> str:
         lines = [
             f"Scrape completed at {self.scraped_at.strftime('%Y-%m-%d %H:%M UTC')}",
-            f"  YouTube videos:     {len(self.youtube_videos)} scraped, {self.youtube_inserted} new",
-            f"  OpenAI articles:    {len(self.openai_articles)} scraped, {self.openai_inserted} new",
-            f"  Anthropic articles: {len(self.anthropic_articles)} scraped, {self.anthropic_inserted} new",
-            f"  Digests created:    {self.digests_created}",
-            f"  Total:              {self.total_items} scraped, {self.total_inserted} new",
+            f"  YouTube videos:        {len(self.youtube_videos)} scraped, {self.youtube_inserted} new",
+            f"  OpenAI articles:       {len(self.openai_articles)} scraped, {self.openai_inserted} new",
+            f"  Anthropic articles:    {len(self.anthropic_articles)} scraped, {self.anthropic_inserted} new",
+            f"  HuggingFace articles:  {len(self.huggingface_articles)} scraped, {self.huggingface_inserted} new",
+            f"  Meta AI articles:      {len(self.meta_ai_articles)} scraped, {self.meta_ai_inserted} new",
+            f"  arXiv papers:          {len(self.arxiv_papers)} scraped, {self.arxiv_inserted} new",
+            f"  Digests created:       {self.digests_created}",
+            f"  Total:                 {self.total_items} scraped, {self.total_inserted} new",
         ]
         return "\n".join(lines)
 
@@ -118,6 +144,39 @@ def run_scrapers(
     except Exception as exc:
         logger.error("Anthropic scraper failed: %s", exc)
 
+    # ── HuggingFace ──────────────────────────────────────────────────────
+    try:
+        logger.info("Scraping Hugging Face blog...")
+        hf = HuggingFaceScraper()
+        result.huggingface_articles = hf.get_latest_articles(since=since)
+
+        # Fetch full article content for better summaries
+        for article in result.huggingface_articles:
+            article.content = hf.fetch_article_content(article.url)
+    except Exception as exc:
+        logger.error("HuggingFace scraper failed: %s", exc)
+
+    # ── Meta AI ──────────────────────────────────────────────────────────
+    try:
+        logger.info("Scraping Meta AI blog...")
+        meta = MetaAIScraper()
+        result.meta_ai_articles = meta.get_latest_articles(since=since)
+
+        # Fetch full article content for better summaries
+        for article in result.meta_ai_articles:
+            article.content = meta.fetch_article_content(article.url)
+    except Exception as exc:
+        logger.error("Meta AI scraper failed: %s", exc)
+
+    # ── arXiv ────────────────────────────────────────────────────────────
+    try:
+        logger.info("Scraping arXiv (cs.AI+cs.LG+cs.CL, max %d)...", ARXIV_MAX_RESULTS)
+        arxiv = ArXivScraper(max_results=ARXIV_MAX_RESULTS)
+        result.arxiv_papers = arxiv.get_latest_articles(since=since)
+        # No content fetch needed — abstract is already in article.content
+    except Exception as exc:
+        logger.error("arXiv scraper failed: %s", exc)
+
     # ── Persist to database ──────────────────────────────────────────────
     if save_to_db and result.total_items > 0:
         session = None
@@ -129,6 +188,9 @@ def run_scrapers(
             result.youtube_inserted = repo.save_youtube_videos(result.youtube_videos)
             result.openai_inserted = repo.save_openai_articles(result.openai_articles)
             result.anthropic_inserted = repo.save_anthropic_articles(result.anthropic_articles)
+            result.huggingface_inserted = repo.save_huggingface_articles(result.huggingface_articles)
+            result.meta_ai_inserted = repo.save_meta_ai_articles(result.meta_ai_articles)
+            result.arxiv_inserted = repo.save_arxiv_papers(result.arxiv_papers)
         except Exception as exc:
             logger.error("Database save failed: %s", exc)
         finally:
@@ -181,6 +243,22 @@ def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
         print("\n-- Anthropic Articles --")
         for a in result.anthropic_articles:
             print(f"  [{a.published_at.strftime('%Y-%m-%d')}] [{a.feed_source}] {a.title}")
+
+    if result.huggingface_articles:
+        print("\n-- Hugging Face Articles --")
+        for a in result.huggingface_articles:
+            print(f"  [{a.published_at.strftime('%Y-%m-%d')}] {a.title}")
+
+    if result.meta_ai_articles:
+        print("\n-- Meta AI Articles --")
+        for a in result.meta_ai_articles:
+            print(f"  [{a.published_at.strftime('%Y-%m-%d')}] {a.title}")
+
+    if result.arxiv_papers:
+        print("\n-- arXiv Papers --")
+        for p in result.arxiv_papers:
+            cat = f"[{p.category}] " if p.category else ""
+            print(f"  [{p.published_at.strftime('%Y-%m-%d')}] {cat}{p.title}")
 
     # Step 2: Curate and rank
     print("\n-- Curated Digest (ranked by relevance) --")

@@ -119,6 +119,52 @@ class ArticleRepository:
             },
         )
 
+    def save_huggingface_articles(self, articles: list) -> int:
+        """Insert Hugging Face blog articles. Returns count of newly inserted rows."""
+        return self._save_items(
+            items=articles,
+            source_type=SourceType.HUGGINGFACE,
+            label="HuggingFace articles",
+            field_mapper=lambda a: {
+                "title": a.title,
+                "url": a.url,
+                "content": a.content,
+                "description": a.description,
+                "published_at": a.published_at,
+            },
+        )
+
+    def save_meta_ai_articles(self, articles: list) -> int:
+        """Insert Meta AI blog articles. Returns count of newly inserted rows."""
+        return self._save_items(
+            items=articles,
+            source_type=SourceType.META_AI,
+            label="Meta AI articles",
+            field_mapper=lambda a: {
+                "title": a.title,
+                "url": a.url,
+                "content": a.content,
+                "description": a.description,
+                "published_at": a.published_at,
+            },
+        )
+
+    def save_arxiv_papers(self, papers: list) -> int:
+        """Insert arXiv papers. Returns count of newly inserted rows."""
+        return self._save_items(
+            items=papers,
+            source_type=SourceType.ARXIV,
+            label="arXiv papers",
+            field_mapper=lambda p: {
+                "title": p.title,
+                "url": p.url,
+                "content": p.content,    # abstract text
+                "description": p.description,
+                "category": p.category,
+                "published_at": p.published_at,
+            },
+        )
+
     # ── Query Methods ────────────────────────────────────────────────────
 
     def get_articles_since(

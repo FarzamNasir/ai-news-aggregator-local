@@ -24,6 +24,8 @@ def is_local() -> bool:
 YOUTUBE_CHANNELS = [
     "UCbfYPyITQ-7l4upoX8nvctg",  # Two Minute Papers
     "UCYO_jab_esuFRV4b17AJtAw",  # 3Blue1Brown
+    "UCZHItN4EWJ932jYq23y4s_Q",  # Yannic Kilcher
+    "UCNJ1Ymd5yFuUPtn21xtRbbw",  # AI Explained
 ]
 
 
@@ -31,3 +33,8 @@ YOUTUBE_CHANNELS = [
 
 # How many hours to look back when fetching new content
 LOOKBACK_HOURS = 24
+
+# Maximum arXiv papers to include per pipeline run (prevents volume flood)
+# arXiv publishes 300-500+ papers/day across cs.AI + cs.LG + cs.CL
+ARXIV_MAX_RESULTS = 10
+
