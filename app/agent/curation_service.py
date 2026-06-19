@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 def curate_digests(
     session: Session,
+    user_profile: str,
     lookback_hours: int = 24,
 ) -> list[dict]:
     """
@@ -26,6 +27,7 @@ def curate_digests(
 
     Args:
         session:        Active SQLAlchemy session.
+        user_profile:   Text describing the user's interests and background.
         lookback_hours: How far back to look for articles (by publish date).
 
     Returns:
@@ -60,9 +62,9 @@ def curate_digests(
         for d in digests
     ]
 
-    # Score and rank
+    # Score and rank using the user's profile
     curator = Curator()
-    scored_items = curator.rank_digests(digest_items)
+    scored_items = curator.rank_digests(digest_items, user_profile=user_profile)
 
     # Merge scores back with full digest info
     digest_lookup = {str(d.id): d for d in digests}
@@ -81,4 +83,3 @@ def curate_digests(
             })
 
     return ranked_results
-

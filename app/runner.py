@@ -5,6 +5,7 @@ Orchestrates all scrapers (YouTube, OpenAI, Anthropic, HuggingFace,
 Meta AI, arXiv), collects recent content, and persists it to the database.
 """
 
+import os
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -21,7 +22,7 @@ from app.scrapers.huggingface_blog import HuggingFaceScraper, HuggingFaceArticle
 from app.scrapers.meta_ai_blog import MetaAIScraper, MetaAIArticle
 from app.scrapers.arxiv_scraper import ArXivScraper, ArXivPaper
 from app.database.connection import get_session, engine
-from app.database.models import Base, Digest
+from app.database.models import Base, Digest, Subscriber, DigestSend
 from app.database.repository import ArticleRepository
 from app.agent.digest_service import process_digests
 from app.agent.curation_service import curate_digests
@@ -260,51 +261,108 @@ def run_full_pipeline(lookback_hours: int = LOOKBACK_HOURS):
             cat = f"[{p.category}] " if p.category else ""
             print(f"  [{p.published_at.strftime('%Y-%m-%d')}] {cat}{p.title}")
 
-    # Step 2: Curate and rank
-    print("\n-- Curated Digest (ranked by relevance) --")
+    # Step 2: Curate and send per-subscriber
+    base_url = os.getenv("BASE_URL", "http://localhost:8000")
     session = get_session()
     try:
-        ranked = curate_digests(session, lookback_hours=lookback_hours)
+        from sqlalchemy import select
 
-        for i, item in enumerate(ranked, 1):
-            print(f"\n  {i}. [{item['score']}/10] {item['title']}")
-            print(f"     {item['summary']}")
-            print(f"     Reason: {item['reason']}")
-            print(f"     {item['url']}")
+        # Get all active subscribers
+        subscribers = list(
+            session.execute(
+                select(Subscriber).where(Subscriber.is_active == True)
+            ).scalars().all()
+        )
 
-        # Step 3: Compose and send email
-        if ranked:
-            email_agent = EmailAgent()
+        if not subscribers:
+            # Fallback: use hardcoded profile if no subscribers exist yet
+            from app.user_profile import USER_PROFILE, USER_NAME
+            logger.info("No subscribers found. Using hardcoded profile for %s.", USER_NAME)
+            subscribers_data = [
+                {
+                    "name": USER_NAME,
+                    "email": os.getenv("RECIPIENT_EMAIL"),
+                    "profile": USER_PROFILE,
+                    "manage_token": None,
+                }
+            ]
+        else:
+            subscribers_data = [
+                {
+                    "name": sub.name,
+                    "email": sub.email,
+                    "profile": sub.build_profile_text(),
+                    "manage_token": sub.manage_token,
+                    "id": str(sub.id),
+                }
+                for sub in subscribers
+            ]
+
+        logger.info("Processing %d subscriber(s)...", len(subscribers_data))
+
+        for sub_data in subscribers_data:
+            sub_name = sub_data["name"]
+            sub_email = sub_data["email"]
+            sub_profile = sub_data["profile"]
+            manage_token = sub_data.get("manage_token")
+
+            if not sub_email:
+                logger.warning("Skipping subscriber '%s' — no email.", sub_name)
+                continue
+
+            print(f"\n-- Curating for {sub_name} ({sub_email}) --")
+
+            # Curate digests for this subscriber's profile
+            ranked = curate_digests(
+                session, user_profile=sub_profile, lookback_hours=lookback_hours
+            )
+
+            if not ranked:
+                print(f"  No relevant articles for {sub_name}.")
+                continue
+
+            for i, item in enumerate(ranked[:5], 1):
+                print(f"  {i}. [{item['score']}/10] {item['title']}")
+
+            # Compose personalized email
+            email_agent = EmailAgent(user_name=sub_name)
             email = email_agent.compose(ranked)
 
-            if email:
-                print("\n" + "=" * 60)
-                print(f"  SUBJECT: {email.subject}")
-                print("=" * 60)
-                print(f"\n  {email.greeting}")
-                print(f"  {email.intro}")
-                print(f"\n  {'_' * 56}")
-                for i, item in enumerate(email.items, 1):
-                    print(f"\n  {i}. {item['title']}")
-                    print(f"     {item['summary']}")
-                    print(f"     {item['url']}")
-                print("\n" + "=" * 60)
+            if not email:
+                logger.warning("Email composition failed for %s.", sub_name)
+                continue
 
-                sent = send_email(email)
-                if sent:
-                    print("\n  \u2705 Email sent successfully!")
+            # Build manage URL
+            manage_url = f"{base_url}/manage/{manage_token}" if manage_token else ""
 
-                    # Step 4: Mark sent digests so they aren't re-sent
-                    sent_ids = [item["digest_id"] for item in email.items if "digest_id" in item]
-                    if sent_ids:
-                        now = datetime.now(timezone.utc)
-                        session.query(Digest).filter(
-                            Digest.id.in_(sent_ids)
-                        ).update({"sent_at": now}, synchronize_session="fetch")
-                        session.commit()
-                        logger.info("Marked %d digests as sent.", len(sent_ids))
-                else:
-                    print("\n  \u274c Email sending failed. Check SMTP config in .env")
+            # Send
+            sent = send_email(
+                email,
+                recipient_email=sub_email,
+                manage_url=manage_url,
+            )
+
+            if sent:
+                print(f"  ✅ Email sent to {sub_email}")
+
+                # Record sends in digest_sends table (if subscriber is in DB)
+                sub_id = sub_data.get("id")
+                if sub_id:
+                    for item in email.items:
+                        digest_id = item.get("digest_id")
+                        if digest_id:
+                            send_record = DigestSend(
+                                subscriber_id=sub_id,
+                                digest_id=digest_id,
+                            )
+                            session.merge(send_record)
+                    session.commit()
+                    logger.info("Recorded %d digest sends for %s.", len(email.items), sub_name)
+            else:
+                print(f"  ❌ Email failed for {sub_email}. Check SMTP config.")
+
+    except Exception as exc:
+        logger.error("Subscriber pipeline failed: %s", exc)
     finally:
         session.close()
 

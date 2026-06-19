@@ -1,29 +1,37 @@
 """
 Article Summarizer Agent
 
-Uses OpenAI's Responses API with GPT-4.1 mini to generate
-structured digest summaries (title + 2-3 sentence summary)
-for scraped articles and videos.
+Uses the configured LLM (Groq/OpenAI) to generate structured digest
+summaries (title + 2-3 sentence summary) for scraped articles and videos.
 """
 
-import os
 import logging
 
-from openai import OpenAI, APIError
 from pydantic import BaseModel
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
     before_sleep_log,
 )
 
+from app.agent.llm_client import get_llm_client, chat_completion
+
 logger = logging.getLogger(__name__)
 
-# Retry OpenAI API errors: up to 4 attempts, 2s → 4s → 8s → 16s backoff
-_openai_retry = retry(
-    retry=retry_if_exception_type(APIError),
+
+def _is_retryable(exc: Exception) -> bool:
+    """Check if an exception is worth retrying (API/network errors)."""
+    exc_type = type(exc).__name__
+    return exc_type in (
+        "APIError", "APIConnectionError", "RateLimitError",
+        "InternalServerError", "APIStatusError",
+    )
+
+
+_llm_retry = retry(
+    retry=retry_if_exception(_is_retryable),
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=2, min=2, max=30),
     before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -55,7 +63,7 @@ class DigestOutput(BaseModel):
 
 class Summarizer:
     """
-    Generates digest summaries using OpenAI's Responses API.
+    Generates digest summaries using the configured LLM provider.
 
     Usage:
         summarizer = Summarizer()
@@ -63,9 +71,8 @@ class Summarizer:
         print(result.title, result.summary)
     """
 
-    def __init__(self, model: str = "gpt-4.1-mini"):
-        self.model = model
-        self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    def __init__(self):
+        self._client = get_llm_client()
 
     def summarize(
         self,
@@ -81,7 +88,7 @@ class Summarizer:
             title:       Original title of the article/video.
             content:     Full text (article body or transcript).
             description: Short description/excerpt if content is unavailable.
-            source_type: "youtube", "openai", or "anthropic".
+            source_type: "youtube", "openai", "anthropic", etc.
 
         Returns:
             DigestOutput with generated title and summary, or None on failure.
@@ -108,13 +115,12 @@ class Summarizer:
             logger.error("Failed to summarize '%s' after retries: %s", title[:60], exc)
             return None
 
-    @_openai_retry
+    @_llm_retry
     def _call_api(self, user_input: str) -> DigestOutput:
-        """Internal: call OpenAI API with automatic retry."""
-        response = self._client.responses.parse(
-            model=self.model,
-            instructions=SYSTEM_PROMPT,
-            input=[{"role": "user", "content": user_input}],
-            text_format=DigestOutput,
+        """Internal: call LLM API with automatic retry."""
+        return chat_completion(
+            client=self._client,
+            system_prompt=SYSTEM_PROMPT,
+            user_input=user_input,
+            response_model=DigestOutput,
         )
-        return response.output_parsed

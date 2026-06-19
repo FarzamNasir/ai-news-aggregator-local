@@ -1,0 +1,606 @@
+/* ═══════════════════════════════════════════════════════════════
+   Lumin — Design System
+   Faithfully recreated from the Figma design
+   Fonts: Onest (headings/body), Inter (UI elements)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── App Root ────────────────────────────────────────────────── */
+.app-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background-color: #5a6b7d;
+}
+
+/* ── Hero Background ─────────────────────────────────────────── */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.hero-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* ── Content Wrapper ─────────────────────────────────────────── */
+.content-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 32px 40px;
+}
+
+/* ── Navigation ──────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.nav-logo {
+  font-family: 'Onest', sans-serif;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  font-family: 'Onest', sans-serif;
+  font-size: 20px;
+}
+
+.nav-links a {
+  color: #fff;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.nav-links a:hover {
+  opacity: 0.7;
+}
+
+/* ── Hero Text ───────────────────────────────────────────────── */
+.hero-text {
+  margin: 48px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  text-align: center;
+  color: #fff;
+  max-width: 616px;
+}
+
+.hero-title {
+  font-family: 'Onest', sans-serif;
+  font-weight: 500;
+  font-size: 48px;
+  line-height: 90.21%;
+}
+
+.hero-subtitle {
+  max-width: 469px;
+  font-family: 'Onest', sans-serif;
+  font-weight: 300;
+  font-size: 24px;
+  line-height: 1.4;
+}
+
+/* ── Name Section ────────────────────────────────────────────── */
+.name-section {
+  margin: 32px auto 0;
+  width: 100%;
+  max-width: 1287px;
+}
+
+.name-field-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 25px;
+  border: 0.5px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 16px 24px;
+  transition: border-color 0.3s;
+}
+
+.name-field-wrapper:focus-within {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.text-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-family: 'Onest', sans-serif;
+  font-weight: 100;
+  font-size: 24px;
+}
+
+.text-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Domains Section ─────────────────────────────────────────── */
+.domains-section {
+  margin: 32px auto 0;
+  width: 100%;
+  max-width: 1287px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.domains-label {
+  width: 100%;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+}
+
+.domains-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+/* ── Domain Card ─────────────────────────────────────────────── */
+.domain-card {
+  position: relative;
+  border-radius: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  border: none;
+  background: none;
+  padding: 0;
+  width: 100%;
+}
+
+.domain-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Frosted glass fill */
+.domain-card-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.domain-card-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #999;
+  mix-blend-mode: darken;
+  border-radius: 16px;
+}
+
+.domain-card-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(51, 51, 51, 0.4);
+  mix-blend-mode: plus-lighter;
+  border-radius: 16px;
+}
+
+/* Stroke */
+.domain-card-stroke {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 16px;
+  border: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.domain-card:hover .domain-card-stroke {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.domain-card[aria-pressed="true"] .domain-card-stroke {
+  border-color: #fff;
+}
+
+/* Card content */
+.domain-card-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px 16px;
+  color: #fff;
+  min-height: 120px;
+}
+
+.domain-card-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 28px;
+  font-weight: 500;
+  width: 100%;
+}
+
+.domain-card-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 300;
+  width: 100%;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+/* Checkmark indicator */
+.domain-card-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.domain-card[aria-pressed="true"] .domain-card-check {
+  background: #fff;
+  border-color: #fff;
+  color: #425870;
+}
+
+/* ── Custom Note ─────────────────────────────────────────────── */
+.custom-note-section {
+  margin: 24px auto 0;
+  width: 100%;
+  max-width: 1287px;
+}
+
+.custom-note-input {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 0.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  outline: none;
+  color: #fff;
+  font-family: 'Onest', sans-serif;
+  font-weight: 100;
+  font-size: 20px;
+  padding: 16px 24px;
+  resize: vertical;
+  transition: border-color 0.3s;
+}
+
+.custom-note-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.custom-note-input:focus {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Subscribe Section ───────────────────────────────────────── */
+.subscribe-section {
+  margin: 24px auto 32px;
+  width: 100%;
+  max-width: 1287px;
+}
+
+.subscribe-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 25px;
+  border: 0.5px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 10px 10px 10px 24px;
+  transition: border-color 0.3s;
+}
+
+.subscribe-field:focus-within {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.email-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-family: 'Onest', sans-serif;
+  font-weight: 100;
+  font-size: 24px;
+}
+
+.email-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.subscribe-btn {
+  flex-shrink: 0;
+  border-radius: 20px;
+  border: 0.5px solid #717171;
+  background: #fff;
+  padding: 16px 32px;
+  font-family: 'Onest', sans-serif;
+  font-weight: 500;
+  font-size: 24px;
+  color: #425870;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.subscribe-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.subscribe-btn:active {
+  transform: scale(0.98);
+}
+
+.subscribe-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Message Container ───────────────────────────────────────── */
+.message-container {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1287px;
+}
+
+.message-box {
+  padding: 20px 28px;
+  border-radius: 16px;
+  font-family: 'Onest', sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.message-box.success {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #d1fae5;
+}
+
+.message-box.error {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+
+.message-box a {
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ── Reveal Animation ────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 24px 20px;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .hero-title {
+    font-size: 32px;
+  }
+
+  .hero-subtitle {
+    font-size: 18px;
+  }
+
+  .domains-label {
+    font-size: 20px;
+  }
+
+  .domains-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .email-input,
+  .text-input {
+    font-size: 16px;
+  }
+
+  .subscribe-btn {
+    font-size: 16px;
+    padding: 12px 20px;
+  }
+
+  .domain-card-title {
+    font-size: 22px;
+  }
+
+  .custom-note-input {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Manage Page Styles
+   ═══════════════════════════════════════════════════════════════ */
+
+.manage-container {
+  position: relative;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.manage-card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 40px 36px;
+  color: #fff;
+}
+
+.manage-title {
+  font-family: 'Onest', sans-serif;
+  font-size: 32px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.manage-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 32px;
+}
+
+.manage-field {
+  margin-bottom: 24px;
+}
+
+.manage-label {
+  display: block;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.manage-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: #fff;
+  font-family: 'Onest', sans-serif;
+  font-size: 18px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.manage-input:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.manage-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.manage-domains-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.manage-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.btn-save {
+  flex: 1;
+  padding: 14px 28px;
+  border-radius: 16px;
+  border: none;
+  background: #fff;
+  color: #425870;
+  font-family: 'Onest', sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-save:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-unsub {
+  padding: 14px 28px;
+  border-radius: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  font-family: 'Onest', sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-unsub:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 60px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: 'Onest', sans-serif;
+  font-size: 20px;
+}

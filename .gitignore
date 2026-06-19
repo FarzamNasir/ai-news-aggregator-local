@@ -11,3 +11,6 @@ wheels/
 
 # Environment variables
 .env
+
+# Figma exports (design integrated into app/static/)
+Replicate Landing Page Design/

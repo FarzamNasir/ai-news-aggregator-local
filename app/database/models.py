@@ -10,8 +10,11 @@ A `digests` table stores LLM-generated summaries linked to articles.
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Text, DateTime, Enum as SAEnum, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import (
+    Column, String, Text, DateTime, Boolean,
+    Enum as SAEnum, ForeignKey, UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import DeclarativeBase, relationship
 import enum
 
@@ -93,3 +96,85 @@ class Digest(Base):
 
     def __repr__(self) -> str:
         return f"<Digest({self.title[:50]})>"
+
+
+class Subscriber(Base):
+    """
+    A newsletter subscriber.
+
+    No account/password — identified by email + managed via magic-link token.
+    Interests are stored as an array of predefined category strings.
+    """
+
+    __tablename__ = "subscribers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    interests = Column(ARRAY(String), nullable=False, default=[])
+    custom_note = Column(Text, nullable=True)       # optional free-text interests
+    manage_token = Column(String, nullable=False, unique=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationship to digest sends
+    digest_sends = relationship("DigestSend", back_populates="subscriber")
+
+    def __repr__(self) -> str:
+        return f"<Subscriber({self.email})>"
+
+    def build_profile_text(self) -> str:
+        """Build a user profile string for the Curator agent."""
+        lines = [f"I am interested in the following AI/tech topics:"]
+        for interest in self.interests:
+            lines.append(f"- {interest}")
+        if self.custom_note:
+            lines.append(f"\nAdditional context: {self.custom_note}")
+        return "\n".join(lines)
+
+
+class DigestSend(Base):
+    """
+    Tracks which digests have been sent to which subscribers.
+
+    Prevents re-sending the same digest to the same subscriber.
+    """
+
+    __tablename__ = "digest_sends"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    subscriber_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("subscribers.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    digest_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("digests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    sent_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("subscriber_id", "digest_id", name="uq_subscriber_digest"),
+    )
+
+    subscriber = relationship("Subscriber", back_populates="digest_sends")
+    digest = relationship("Digest")
+
+    def __repr__(self) -> str:
+        return f"<DigestSend(sub={self.subscriber_id}, digest={self.digest_id})>"

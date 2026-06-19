@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Preferences — Lumin</title>
+  <meta name="description" content="Update your AI news digest preferences or unsubscribe.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Onest:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-root">
+    <!-- Full-page hero background -->
+    <div class="hero-bg">
+      <img src="/static/hero-bg.png" alt="" class="hero-bg-img" />
+    </div>
+
+    <div class="content-wrapper">
+      <!-- Navigation -->
+      <nav class="nav">
+        <a href="/" class="nav-logo" style="text-decoration:none; color:#fff;">Lumin</a>
+      </nav>
+
+      <!-- Manage Card -->
+      <div class="manage-container" id="manage-container">
+        <div class="loading-spinner" id="loading">Loading your preferences...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+  (function() {
+    "use strict";
+
+    // Extract token from URL: /manage/{token}
+    const pathParts = window.location.pathname.split("/");
+    const token = pathParts[pathParts.length - 1];
+
+    let allCategories = [];
+    let selectedInterests = [];
+
+    // ── Load data ─────────────────────────────────────────────
+    async function init() {
+      try {
+        // Load categories and subscriber data in parallel
+        const [catRes, subRes] = await Promise.all([
+          fetch("/api/interests"),
+          fetch(`/api/manage/${token}`),
+        ]);
+
+        if (!subRes.ok) {
+          showError("Subscriber not found. This link may be invalid.");
+          return;
+        }
+
+        const catData = await catRes.json();
+        const subData = await subRes.json();
+
+        allCategories = catData.categories;
+        selectedInterests = subData.interests || [];
+
+        renderManagePage(subData);
+      } catch (err) {
+        showError("Failed to load preferences. Please try again.");
+      }
+    }
+
+    // ── Render ────────────────────────────────────────────────
+    function renderManagePage(sub) {
+      const container = document.getElementById("manage-container");
+
+      const domainsHtml = allCategories.map(cat => {
+        const isSelected = selectedInterests.includes(cat);
+        return `
+          <button
+            type="button"
+            class="domain-card"
+            aria-pressed="${isSelected}"
+            data-domain="${cat}"
+            onclick="toggleManageDomain(this)"
+          >
+            <div class="domain-card-glass"></div>
+            <div class="domain-card-stroke"></div>
+            <div class="domain-card-check">✓</div>
+            <div class="domain-card-content">
+              <p class="domain-card-title" style="font-size:18px;">${cat}</p>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <div class="manage-card">
+          <h1 class="manage-title">Your Preferences</h1>
+          <p class="manage-subtitle">Hi ${sub.name}! Update your digest preferences below.</p>
+
+          <div class="manage-field">
+            <label class="manage-label">Name</label>
+            <input type="text" id="manage-name" class="manage-input" value="${sub.name}" />
+          </div>
+
+          <div class="manage-field">
+            <label class="manage-label">Your Domains</label>
+            <div class="manage-domains-grid">${domainsHtml}</div>
+          </div>
+
+          <div class="manage-field">
+            <label class="manage-label">Custom Focus (optional)</label>
+            <textarea id="manage-note" class="manage-input" rows="3" placeholder="Anything specific you'd like us to focus on?">${sub.custom_note || ""}</textarea>
+          </div>
+
+          <div id="manage-message" style="display:none; margin-bottom:16px;"></div>
+
+          <div class="manage-actions">
+            <button type="button" class="btn-save" onclick="savePreferences()">Save Changes</button>
+            <button type="button" class="btn-unsub" onclick="unsubscribe()">Unsubscribe</button>
+          </div>
+        </div>
+      `;
+
+      // Animate in
+      gsap.from(".manage-card", {
+        y: 20, opacity: 0, duration: 0.6, ease: "power3.out"
+      });
+    }
+
+    // ── Toggle domain ─────────────────────────────────────────
+    window.toggleManageDomain = function(card) {
+      const domain = card.dataset.domain;
+      const isSelected = card.getAttribute("aria-pressed") === "true";
+
+      if (isSelected) {
+        selectedInterests = selectedInterests.filter(d => d !== domain);
+        card.setAttribute("aria-pressed", "false");
+      } else {
+        selectedInterests.push(domain);
+        card.setAttribute("aria-pressed", "true");
+      }
+    };
+
+    // ── Save ──────────────────────────────────────────────────
+    window.savePreferences = async function() {
+      const name = document.getElementById("manage-name").value.trim();
+      const note = document.getElementById("manage-note").value.trim();
+
+      if (!name) {
+        showManageMessage("Please enter your name.", "error");
+        return;
+      }
+      if (selectedInterests.length === 0) {
+        showManageMessage("Please select at least one domain.", "error");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/manage/${token}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name,
+            interests: selectedInterests,
+            custom_note: note || null,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          showManageMessage("✅ " + data.message, "success");
+        } else {
+          showManageMessage(data.detail || "Update failed.", "error");
+        }
+      } catch (err) {
+        showManageMessage("Network error. Please try again.", "error");
+      }
+    };
+
+    // ── Unsubscribe ───────────────────────────────────────────
+    window.unsubscribe = async function() {
+      if (!confirm("Are you sure you want to unsubscribe? You can always come back.")) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/manage/${token}`, { method: "DELETE" });
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById("manage-container").innerHTML = `
+            <div class="manage-card" style="text-align:center;">
+              <h1 class="manage-title">You've been unsubscribed</h1>
+              <p class="manage-subtitle">${data.message}</p>
+              <a href="/" style="color:#fff; font-family:'Onest',sans-serif; font-size:18px;">← Back to Lumin</a>
+            </div>
+          `;
+        } else {
+          showManageMessage(data.detail || "Unsubscribe failed.", "error");
+        }
+      } catch (err) {
+        showManageMessage("Network error. Please try again.", "error");
+      }
+    };
+
+    // ── Helpers ───────────────────────────────────────────────
+    function showManageMessage(text, type) {
+      const el = document.getElementById("manage-message");
+      el.style.display = "block";
+      el.className = "message-box " + type;
+      el.textContent = text;
+      setTimeout(() => { el.style.display = "none"; }, 5000);
+    }
+
+    function showError(msg) {
+      document.getElementById("manage-container").innerHTML = `
+        <div class="manage-card" style="text-align:center;">
+          <h1 class="manage-title">Oops</h1>
+          <p class="manage-subtitle">${msg}</p>
+          <a href="/" style="color:#fff; font-family:'Onest',sans-serif; font-size:18px;">← Back to Lumin</a>
+        </div>
+      `;
+    }
+
+    // Hero bg drift
+    gsap.to(".hero-bg", {
+      scale: 1.06, duration: 18, ease: "sine.inOut", yoyo: true, repeat: -1
+    });
+
+    // Init
+    init();
+  })();
+  </script>
+</body>
+</html>

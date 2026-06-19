@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lumin — AI-Curated News, Delivered to You</title>
+  <meta name="description" content="AI-curated newsletters built around what you actually care about. Choose your domains, enter your email, and receive a personalized AI digest daily.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Onest:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app" class="app-root">
+    <!-- Full-page hero background -->
+    <div class="hero-bg">
+      <img src="/static/hero-bg.png" alt="" class="hero-bg-img" />
+    </div>
+
+    <div class="content-wrapper">
+      <!-- Navigation -->
+      <nav class="nav reveal">
+        <p class="nav-logo">Lumin</p>
+        <div class="nav-links">
+          <a href="#domains">Domains</a>
+          <a href="#subscribe">Subscribe</a>
+        </div>
+      </nav>
+
+      <!-- Hero copy -->
+      <div class="hero-text reveal">
+        <div class="hero-title">
+          <p>The future, already filtered.</p>
+          <p>Delivered to you.</p>
+        </div>
+        <p class="hero-subtitle">
+          AI-curated newsletters built around what you actually care about.
+        </p>
+      </div>
+
+      <!-- Name field -->
+      <div class="name-section reveal" id="subscribe">
+        <div class="name-field-wrapper">
+          <input
+            type="text"
+            id="name-input"
+            placeholder="What should we call you?"
+            class="text-input"
+          />
+        </div>
+      </div>
+
+      <!-- Choose domain -->
+      <div class="domains-section reveal" id="domains">
+        <p class="domains-label">Choose your domains:</p>
+        <div class="domains-grid" id="domains-grid">
+          <!-- Cards will be injected by JS -->
+        </div>
+      </div>
+
+      <!-- Custom note -->
+      <div class="custom-note-section reveal">
+        <textarea
+          id="custom-note"
+          placeholder="Anything specific you'd like us to focus on? (optional)"
+          class="custom-note-input"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- Subscription field -->
+      <div class="subscribe-section reveal">
+        <div class="subscribe-field">
+          <input
+            type="email"
+            id="email-input"
+            placeholder="Enter your email here & get your personal digest"
+            class="email-input"
+          />
+          <button type="button" id="subscribe-btn" class="subscribe-btn">
+            Subscribe
+          </button>
+        </div>
+      </div>
+
+      <!-- Success / Error messages -->
+      <div id="message-container" class="message-container" style="display: none;">
+        <div id="message-box" class="message-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

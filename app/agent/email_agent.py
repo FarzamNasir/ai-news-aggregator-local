@@ -3,29 +3,37 @@ Email Agent
 
 Takes the top-ranked curated digest items and generates an email-ready
 structure with a personalized introduction and the ranked article list.
-Uses the OpenAI Responses API for the intro text.
+Uses the configured LLM (Groq/OpenAI) for the intro text.
 """
 
 import logging
 from datetime import datetime, timezone
 
-from openai import OpenAI, APIError
 from pydantic import BaseModel
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
     before_sleep_log,
 )
 
-from app.user_profile import USER_NAME
+from app.agent.llm_client import get_llm_client, chat_completion
 
 logger = logging.getLogger(__name__)
 
-# Retry OpenAI API errors: up to 4 attempts, 2s → 4s → 8s → 16s backoff
-_openai_retry = retry(
-    retry=retry_if_exception_type(APIError),
+
+def _is_retryable(exc: Exception) -> bool:
+    """Check if an exception is worth retrying (API/network errors)."""
+    exc_type = type(exc).__name__
+    return exc_type in (
+        "APIError", "APIConnectionError", "RateLimitError",
+        "InternalServerError", "APIStatusError",
+    )
+
+
+_llm_retry = retry(
+    retry=retry_if_exception(_is_retryable),
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=2, min=2, max=30),
     before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -67,14 +75,14 @@ class EmailAgent:
     Generates email-ready content from curated digest items.
 
     Usage:
-        agent = EmailAgent()
+        agent = EmailAgent(user_name="Farzam")
         email = agent.compose(ranked_items)
     """
 
-    def __init__(self, model: str = "gpt-4.1-mini", top_n: int = 10):
-        self.model = model
+    def __init__(self, user_name: str = "Subscriber", top_n: int = 10):
+        self.user_name = user_name
         self.top_n = top_n
-        self._client = OpenAI()
+        self._client = get_llm_client()
 
     def compose(self, ranked_items: list[dict]) -> EmailContent | None:
         """
@@ -121,7 +129,7 @@ class EmailAgent:
         )
 
         user_input = (
-            f"Reader's name: {USER_NAME}\n"
+            f"Reader's name: {self.user_name}\n"
             f"Today's date: {today}\n"
             f"Number of articles: {len(items)}\n\n"
             f"RANKED ARTICLES:\n{article_list}"
@@ -129,19 +137,18 @@ class EmailAgent:
 
         try:
             result = self._call_api(user_input)
-            logger.info("Generated email intro for %s", USER_NAME)
+            logger.info("Generated email intro for %s", self.user_name)
             return result
         except Exception as exc:
             logger.error("Email intro generation failed after retries: %s", exc)
             return None
 
-    @_openai_retry
+    @_llm_retry
     def _call_api(self, user_input: str) -> EmailIntro:
-        """Internal: call OpenAI API with automatic retry."""
-        response = self._client.responses.parse(
-            model=self.model,
-            instructions=INTRO_PROMPT,
-            input=[{"role": "user", "content": user_input}],
-            text_format=EmailIntro,
+        """Internal: call LLM API with automatic retry."""
+        return chat_completion(
+            client=self._client,
+            system_prompt=INTRO_PROMPT,
+            user_input=user_input,
+            response_model=EmailIntro,
         )
-        return response.output_parsed

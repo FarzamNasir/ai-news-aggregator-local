@@ -65,7 +65,7 @@ def _build_article_row(index: int, item: dict) -> str:
     </tr>"""
 
 
-def build_html_email(email: EmailContent) -> str:
+def build_html_email(email: EmailContent, manage_url: str = "") -> str:
     """Render EmailContent into a complete HTML email string."""
 
     # Build article rows
@@ -148,11 +148,16 @@ def build_html_email(email: EmailContent) -> str:
           <!-- Footer -->
           <tr>
             <td style="background-color: #1f2937; padding: 24px 32px; border-radius: 0 0 16px 16px; text-align: center;">
-              <p style="margin: 0 0 4px 0; font-size: 13px; color: rgba(255,255,255,0.6); font-family: 'Inter', Arial, sans-serif;">
-                Curated by your AI News Aggregator
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: rgba(255,255,255,0.6); font-family: 'Inter', Arial, sans-serif;">
+                Curated by Lumin &mdash; your AI news assistant
               </p>
+              {f'''<p style="margin: 0 0 8px 0; font-size: 13px; font-family: 'Inter', Arial, sans-serif;">
+                <a href="{manage_url}" style="color: #818cf8; text-decoration: none;">Manage preferences</a>
+                &nbsp;&bull;&nbsp;
+                <a href="{manage_url}" style="color: rgba(255,255,255,0.4); text-decoration: none;">Unsubscribe</a>
+              </p>''' if manage_url else ''}
               <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.35); font-family: 'Inter', Arial, sans-serif;">
-                Powered by GPT-4.1 mini &bull; Scores reflect relevance to your profile
+                Scores reflect relevance to your profile
               </p>
             </td>
           </tr>
@@ -168,42 +173,52 @@ def build_html_email(email: EmailContent) -> str:
     return html
 
 
-def send_email(email_content: EmailContent) -> bool:
+def send_email(
+    email_content: EmailContent,
+    recipient_email: str | None = None,
+    manage_url: str = "",
+) -> bool:
     """
     Build and send the digest email via Gmail SMTP.
+
+    Args:
+        email_content:   The composed email content.
+        recipient_email: Where to send. Falls back to RECIPIENT_EMAIL env var.
+        manage_url:      Magic-link URL for manage/unsubscribe (added to footer).
 
     Environment variables required:
         SMTP_EMAIL:        Your Gmail address
         SMTP_APP_PASSWORD: Gmail App Password (16 chars)
-        RECIPIENT_EMAIL:   Where to send the digest
 
     Returns:
         True if sent successfully, False otherwise.
     """
     smtp_email = os.getenv("SMTP_EMAIL")
     smtp_password = os.getenv("SMTP_APP_PASSWORD")
-    recipient = os.getenv("RECIPIENT_EMAIL")
+    recipient = recipient_email or os.getenv("RECIPIENT_EMAIL")
 
     if not all([smtp_email, smtp_password, recipient]):
         logger.error(
             "Missing email config. Set SMTP_EMAIL, SMTP_APP_PASSWORD, "
-            "and RECIPIENT_EMAIL in your .env file."
+            "and provide a recipient_email or RECIPIENT_EMAIL in .env."
         )
         return False
 
     # Build the HTML
-    html_body = build_html_email(email_content)
+    html_body = build_html_email(email_content, manage_url=manage_url)
 
     # Build the email message
     msg = MIMEMultipart("alternative")
     msg["Subject"] = email_content.subject
-    msg["From"] = f"AI News Digest <{smtp_email}>"
+    msg["From"] = f"Lumin AI Digest <{smtp_email}>"
     msg["To"] = recipient
 
     # Plain text fallback
     plain_text = f"{email_content.greeting}\n\n{email_content.intro}\n\n"
     for i, item in enumerate(email_content.items, 1):
         plain_text += f"{i}. {item['title']}\n   {item['summary']}\n   {item['url']}\n\n"
+    if manage_url:
+        plain_text += f"\n---\nManage preferences: {manage_url}\n"
 
     msg.attach(MIMEText(plain_text, "plain"))
     msg.attach(MIMEText(html_body, "html"))
@@ -220,5 +235,5 @@ def send_email(email_content: EmailContent) -> bool:
         return True
 
     except Exception as exc:
-        logger.error("Failed to send email: %s", exc)
+        logger.error("Failed to send email to %s: %s", recipient, exc)
         return False
