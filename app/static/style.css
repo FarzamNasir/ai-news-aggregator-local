@@ -277,7 +277,7 @@ html, body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -467,7 +467,8 @@ html, body {
   }
 
   .nav-links {
-    display: none;
+    gap: 24px;
+    font-size: 16px;
   }
 
   .hero-title {
