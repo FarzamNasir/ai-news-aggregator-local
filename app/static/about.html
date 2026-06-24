@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Lumin</title>
+  <meta name="description" content="Learn about Lumin — an AI-powered news aggregation service that curates personalized daily digests for people in AI.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Onest:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* ── About Page Specific ──────────────────────────────────── */
+    .about-container {
+      position: relative;
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 40px 0 20px;
+    }
+
+    .about-card {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 48px 44px;
+      color: #fff;
+    }
+
+    @media (max-width: 768px) {
+      .about-card { padding: 32px 24px; }
+      .about-container { padding: 24px 0; }
+    }
+
+    .about-section {
+      margin-bottom: 40px;
+    }
+
+    .about-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .about-badge {
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin-bottom: 14px;
+    }
+
+    .about-heading {
+      font-family: 'Onest', sans-serif;
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1.3;
+      margin: 0 0 16px;
+      letter-spacing: -0.3px;
+    }
+
+    .about-text {
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.75;
+      color: rgba(255, 255, 255, 0.72);
+      margin: 0 0 14px;
+    }
+
+    .about-text:last-child {
+      margin-bottom: 0;
+    }
+
+    .about-divider {
+      border: none;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 0 0 40px;
+    }
+
+    /* Feature list */
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0 0;
+    }
+
+    .feature-list li {
+      position: relative;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.72);
+      padding-left: 28px;
+      margin-bottom: 12px;
+    }
+
+    .feature-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: rgba(255, 255, 255, 0.35);
+      font-weight: 500;
+    }
+
+    /* Connect links */
+    .connect-links {
+      display: flex;
+      gap: 16px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .connect-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+
+    .connect-link:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .connect-link svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* Back link */
+    .about-back {
+      display: inline-block;
+      margin-top: 28px;
+      font-family: 'Onest', sans-serif;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.5);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .about-back:hover {
+      color: #fff;
+    }
+
+    /* Footer on about page */
+    .about-footer {
+      text-align: center;
+      padding: 28px 0 8px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: 'Onest', sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+    }
+
+    .about-footer .heart {
+      color: #e74c3c;
+      display: inline-block;
+      animation: heartbeat 1.4s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-root">
+    <!-- Full-page hero background -->
+    <div class="hero-bg">
+      <img src="/static/hero-bg.png" alt="" class="hero-bg-img" />
+    </div>
+
+    <div class="content-wrapper">
+      <!-- Navigation -->
+      <nav class="nav">
+        <a href="/" class="nav-logo" style="text-decoration:none; color:#fff;">Lumin</a>
+        <div class="nav-links">
+          <a href="/about">About</a>
+        </div>
+      </nav>
+
+      <div class="about-container">
+        <div class="about-card">
+
+          <!-- The Problem -->
+          <div class="about-section">
+            <span class="about-badge">The Problem</span>
+            <h1 class="about-heading">AI moves fast. Keeping up shouldn't be a full-time job.</h1>
+            <p class="about-text">
+              If you work in AI, you know the feeling. New papers on arXiv every day. Blog posts from OpenAI, Anthropic, Meta, and Hugging Face landing at random hours. YouTube channels breaking down the latest breakthroughs. Important launches buried under hype.
+            </p>
+            <p class="about-text">
+              The information is everywhere — scattered across dozens of sources, buried in feeds, and mixed in with noise. By the time you catch up, there's already something new you've missed. It's exhausting, and for professionals who need to stay sharp, it's unsustainable.
+            </p>
+          </div>
+
+          <hr class="about-divider" />
+
+          <!-- The Solution -->
+          <div class="about-section">
+            <span class="about-badge">The Solution</span>
+            <h2 class="about-heading">Lumin: your AI news, filtered and delivered.</h2>
+            <p class="about-text">
+              Lumin is an AI-powered news aggregation service that scrapes the most important sources in the AI world, summarizes them using LLMs, and delivers a single, personalized daily email digest — ranked by what matters to <em>you</em>.
+            </p>
+            <p class="about-text">
+              No accounts to manage. No apps to install. Just choose your domains, enter your email, and wake up to the news that matters.
+            </p>
+          </div>
+
+          <hr class="about-divider" />
+
+          <!-- How It Works -->
+          <div class="about-section">
+            <span class="about-badge">How It Works</span>
+            <h2 class="about-heading">From sources to your inbox, fully automated.</h2>
+            <ul class="feature-list">
+              <li>Scrapes 6+ sources daily — YouTube (AI channels), OpenAI, Anthropic, Hugging Face, Meta AI, and arXiv</li>
+              <li>LLM-generated summaries for every article, so you get the gist in seconds</li>
+              <li>Personalized curation — articles scored and ranked based on <em>your</em> interests</li>
+              <li>Beautiful email digest with relevance scores, delivered to your inbox every morning</li>
+              <li>Magic-link preferences — update your interests anytime, no login required</li>
+              <li>Powered by Groq (Llama 3.3 70B) for fast, free inference at scale</li>
+            </ul>
+          </div>
+
+          <hr class="about-divider" />
+
+          <!-- Connect -->
+          <div class="about-section">
+            <span class="about-badge">Connect</span>
+            <h2 class="about-heading">Built by Farzam Nasir</h2>
+            <p class="about-text">
+              Lumin started as a personal project to solve my own problem — I wanted a single, curated feed instead of checking 15 different sources every morning. It grew into something I think others can use too.
+            </p>
+            <div class="connect-links">
+              <a href="https://www.linkedin.com/in/farzamnasir/" target="_blank" rel="noopener" class="connect-link">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                LinkedIn
+              </a>
+              <a href="https://farzamnasir.com" target="_blank" rel="noopener" class="connect-link">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                Portfolio
+              </a>
+            </div>
+          </div>
+
+        </div>
+
+        <a href="/" class="about-back">← Back to Lumin</a>
+
+        <div class="about-footer">
+          <p>Built with <span class="heart">&hearts;</span> by Farzam</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    // Hero bg drift
+    gsap.to(".hero-bg", {
+      scale: 1.06, duration: 18, ease: "sine.inOut", yoyo: true, repeat: -1
+    });
+    // Fade in card
+    gsap.from(".about-card", {
+      y: 24, opacity: 0, duration: 0.8, ease: "power3.out", delay: 0.1
+    });
+  </script>
+</body>
+</html>

@@ -66,6 +66,13 @@ def landing_page():
     return FileResponse(index_path)
 
 
+@app.get("/about", response_class=HTMLResponse)
+def about_page():
+    """Serve the about page."""
+    about_path = os.path.join(STATIC_DIR, "about.html")
+    return FileResponse(about_path)
+
+
 @app.get("/manage/{token}", response_class=HTMLResponse)
 def manage_page(token: str):
     """Serve the preferences management page."""

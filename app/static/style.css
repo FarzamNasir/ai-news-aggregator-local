@@ -269,7 +269,7 @@ html, body {
   line-height: 1.4;
 }
 
-/* Checkmark indicator */
+/* Checkmark indicator — hidden by default, visible only when selected */
 .domain-card-check {
   position: absolute;
   top: 12px;
@@ -277,12 +277,14 @@ html, body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
   font-size: 14px;
+  color: transparent;
+  background: transparent;
 }
 
 .domain-card[aria-pressed="true"] .domain-card-check {
@@ -391,6 +393,32 @@ html, body {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+/* ── Site Footer ─────────────────────────────────────────────── */
+.site-footer {
+  margin-top: 32px;
+  padding: 24px 0 8px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Onest', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  letter-spacing: 0.3px;
+}
+
+.site-footer .heart {
+  color: #e74c3c;
+  display: inline-block;
+  animation: heartbeat 1.4s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.2); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.15); }
+  56% { transform: scale(1); }
 }
 
 /* ── Message Container ───────────────────────────────────────── */
