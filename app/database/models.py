@@ -114,7 +114,9 @@ class Subscriber(Base):
     interests = Column(ARRAY(String), nullable=False, default=[])
     custom_note = Column(Text, nullable=True)       # optional free-text interests
     manage_token = Column(String, nullable=False, unique=True)
-    is_active = Column(Boolean, nullable=False, default=True)
+    confirmation_token = Column(String, nullable=True, unique=True)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,

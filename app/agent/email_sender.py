@@ -17,6 +17,100 @@ from app.agent.email_agent import EmailContent
 
 logger = logging.getLogger(__name__)
 
+
+def send_confirmation_email(
+    recipient_email: str,
+    name: str,
+    confirm_url: str,
+) -> bool:
+    """
+    Send a lightweight email asking the user to confirm their subscription.
+
+    Returns True if sent successfully, False otherwise.
+    """
+    smtp_email = os.getenv("SMTP_EMAIL")
+    smtp_password = os.getenv("SMTP_APP_PASSWORD")
+
+    if not all([smtp_email, smtp_password, recipient_email]):
+        logger.error("Missing email config for confirmation email.")
+        return False
+
+    FONT = (
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, "
+        "Helvetica, Arial, sans-serif"
+    )
+
+    html_body = f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; background-color:#f4f4f5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+<tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px; width:100%;">
+
+  <!-- Header -->
+  <tr><td style="background-color:#09090b; border-radius:12px 12px 0 0; padding:28px 32px;">
+    <span style="font-family:{FONT}; font-size:11px; font-weight:600; letter-spacing:1.6px; color:#a1a1aa; text-transform:uppercase;">LUMIN</span>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="background-color:#ffffff; padding:36px 32px; border-left:1px solid #e4e4e7; border-right:1px solid #e4e4e7;">
+    <h1 style="font-family:{FONT}; font-size:22px; font-weight:600; color:#18181b; margin:0 0 16px; letter-spacing:-0.3px;">Confirm your subscription</h1>
+    <p style="font-family:{FONT}; font-size:15px; line-height:24px; color:#52525b; margin:0 0 24px;">
+      Hey {name}, thanks for signing up for Lumin. Please confirm your email address so we can start sending your personalized AI digest.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="border-radius:8px; background-color:#18181b;">
+        <a href="{confirm_url}" style="display:inline-block; padding:14px 32px; font-family:{FONT}; font-size:15px; font-weight:600; color:#fafafa; text-decoration:none; border-radius:8px;">Confirm my email</a>
+      </td>
+    </tr></table>
+    <p style="font-family:{FONT}; font-size:13px; line-height:20px; color:#a1a1aa; margin:24px 0 0;">
+      If the button doesn't work, copy and paste this URL into your browser:<br>
+      <a href="{confirm_url}" style="color:#71717a; word-break:break-all;">{confirm_url}</a>
+    </p>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background-color:#09090b; border-radius:0 0 12px 12px; padding:20px 32px;">
+    <p style="font-family:{FONT}; font-size:12px; color:#a1a1aa; margin:0;">
+      If you didn't sign up for Lumin, you can safely ignore this email.
+    </p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body>
+</html>"""
+
+    plain_text = (
+        f"Hey {name},\n\n"
+        f"Thanks for signing up for Lumin. Please confirm your email by visiting:\n"
+        f"{confirm_url}\n\n"
+        f"If you didn't sign up, you can safely ignore this email.\n"
+    )
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Confirm your Lumin subscription"
+    msg["From"] = f"Lumin <{smtp_email}>"
+    msg["To"] = recipient_email
+
+    msg.attach(MIMEText(plain_text, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls(context=context)
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+
+        logger.info("Confirmation email sent to %s", recipient_email)
+        return True
+    except Exception as exc:
+        logger.error("Failed to send confirmation email to %s: %s", recipient_email, exc)
+        return False
+
 # ── Design tokens (shadcn/ui zinc) ───────────────────────────────────────────
 # background:#f4f4f5  card:#ffffff  border:#e4e4e7
 # foreground:#18181b  muted-foreground:#71717a  muted:#fafafa

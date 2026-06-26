@@ -132,11 +132,11 @@
       const data = await res.json();
 
       if (res.ok) {
-        showMessage(
-          `${data.message}<br><br>
-           <a href="${data.manage_url}" target="_blank">Manage your preferences →</a>`,
-          "success"
-        );
+        let msg = data.message;
+        if (data.manage_url) {
+          msg += `<br><br><a href="${data.manage_url}" target="_blank">Manage your preferences →</a>`;
+        }
+        showMessage(msg, "success");
         // Clear form
         nameInput.value = "";
         emailInput.value = "";

@@ -30,7 +30,7 @@ INTEREST_CATEGORIES = [
 class SubscribeRequest(BaseModel):
     """Request body for subscribing to the newsletter."""
     name: str
-    email: str
+    email: EmailStr
     interests: list[str]
     custom_note: str | None = None
 
