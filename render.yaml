@@ -50,6 +50,10 @@ services:
           property: connectionString
       - key: BASE_URL
         value: https://lumin-ai-news.onrender.com
+      - key: SMTP_EMAIL
+        sync: false # manually set in Render dashboard
+      - key: SMTP_APP_PASSWORD
+        sync: false
 
 # ── Managed PostgreSQL ─────────────────────────────────────
 databases:
