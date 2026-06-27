@@ -1,14 +1,8 @@
-"""
-Email Sender
-
-Renders the EmailContent into a monochromatic, shadcn/ui-inspired HTML
-email and sends it via Gmail SMTP with App Password authentication.
-"""
-
 import os
 import logging
 import smtplib
 import ssl
+import threading
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +10,46 @@ from email.mime.multipart import MIMEMultipart
 from app.agent.email_agent import EmailContent
 
 logger = logging.getLogger(__name__)
+
+
+def _send_smtp(msg: MIMEMultipart, recipient: str) -> bool:
+    """
+    Low-level SMTP send via Gmail.
+
+    Tries SMTP_SSL (port 465) first, falls back to STARTTLS (port 587).
+    Includes a 15-second timeout on all connections.
+    """
+    smtp_email = os.getenv("SMTP_EMAIL")
+    smtp_password = os.getenv("SMTP_APP_PASSWORD")
+
+    if not smtp_email or not smtp_password:
+        logger.error("SMTP credentials missing (SMTP_EMAIL or SMTP_APP_PASSWORD)")
+        return False
+
+    # Attempt 1: SMTP_SSL on port 465 (preferred on cloud platforms)
+    try:
+        logger.info("Attempting SMTP_SSL (port 465) to %s ...", recipient)
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=15) as server:
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+        logger.info("Email sent via SMTP_SSL (465) to %s", recipient)
+        return True
+    except Exception as exc:
+        logger.warning("SMTP_SSL (465) failed for %s: %s. Trying STARTTLS (587)...", recipient, exc)
+
+    # Attempt 2: STARTTLS on port 587 (fallback)
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+            server.starttls(context=context)
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+        logger.info("Email sent via STARTTLS (587) to %s", recipient)
+        return True
+    except Exception as exc:
+        logger.error("STARTTLS (587) also failed for %s: %s", recipient, exc)
+        return False
 
 
 def send_confirmation_email(
@@ -26,7 +60,8 @@ def send_confirmation_email(
     """
     Send a lightweight email asking the user to confirm their subscription.
 
-    Returns True if sent successfully, False otherwise.
+    Sends in a background thread so the API responds instantly.
+    Returns True immediately (fire-and-forget).
     """
     smtp_email = os.getenv("SMTP_EMAIL")
     smtp_password = os.getenv("SMTP_APP_PASSWORD")
@@ -98,18 +133,14 @@ def send_confirmation_email(
     msg.attach(MIMEText(plain_text, "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls(context=context)
-            server.login(smtp_email, smtp_password)
-            server.send_message(msg)
+    # Send in a background thread so the API responds instantly
+    def _send():
+        _send_smtp(msg, recipient_email)
 
-        logger.info("Confirmation email sent to %s", recipient_email)
-        return True
-    except Exception as exc:
-        logger.error("Failed to send confirmation email to %s: %s", recipient_email, exc)
-        return False
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
+    logger.info("Confirmation email queued for %s (background thread)", recipient_email)
+    return True
 
 # ── Design tokens (shadcn/ui zinc) ───────────────────────────────────────────
 # background:#f4f4f5  card:#ffffff  border:#e4e4e7
@@ -429,17 +460,5 @@ def send_email(
     msg.attach(MIMEText(plain_text, "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
-    # Send via Gmail SMTP
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls(context=context)
-            server.login(smtp_email, smtp_password)
-            server.send_message(msg)
-
-        logger.info("Email sent successfully to %s", recipient)
-        return True
-
-    except Exception as exc:
-        logger.error("Failed to send email to %s: %s", recipient, exc)
-        return False
+    # Send via Gmail SMTP (uses shared helper with 465/587 fallback + timeout)
+    return _send_smtp(msg, recipient)

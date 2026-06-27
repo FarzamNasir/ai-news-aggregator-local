@@ -31,6 +31,7 @@ from app.api.schemas import (
     INTEREST_CATEGORIES,
 )
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 # ── App Setup ────────────────────────────────────────────────────────────────
