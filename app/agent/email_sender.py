@@ -58,16 +58,20 @@ def send_confirmation_email(
     confirm_url: str,
 ) -> bool:
     """
-    Send a lightweight email asking the user to confirm their subscription.
+    Send a confirmation email via Resend HTTP API.
+
+    Uses Resend instead of SMTP because Render's free-tier web service
+    blocks outgoing SMTP (ports 465/587). Resend uses HTTPS (port 443)
+    which is not restricted.
 
     Sends in a background thread so the API responds instantly.
     Returns True immediately (fire-and-forget).
     """
-    smtp_email = os.getenv("SMTP_EMAIL")
-    smtp_password = os.getenv("SMTP_APP_PASSWORD")
+    import httpx
 
-    if not all([smtp_email, smtp_password, recipient_email]):
-        logger.error("Missing email config for confirmation email.")
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    if not resend_api_key:
+        logger.error("RESEND_API_KEY not set — cannot send confirmation email.")
         return False
 
     FONT = (
@@ -125,21 +129,33 @@ def send_confirmation_email(
         f"If you didn't sign up, you can safely ignore this email.\n"
     )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Confirm your Lumin subscription"
-    msg["From"] = f"Lumin <{smtp_email}>"
-    msg["To"] = recipient_email
+    def _send_via_resend():
+        try:
+            response = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "Lumin <onboarding@resend.dev>",
+                    "to": [recipient_email],
+                    "subject": "Confirm your Lumin subscription",
+                    "html": html_body,
+                    "text": plain_text,
+                },
+                timeout=15,
+            )
+            if response.status_code == 200:
+                logger.info("Confirmation email sent via Resend to %s (id: %s)", recipient_email, response.json().get("id"))
+            else:
+                logger.error("Resend API error for %s: %s %s", recipient_email, response.status_code, response.text)
+        except Exception as exc:
+            logger.error("Resend request failed for %s: %s", recipient_email, exc)
 
-    msg.attach(MIMEText(plain_text, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
-
-    # Send in a background thread so the API responds instantly
-    def _send():
-        _send_smtp(msg, recipient_email)
-
-    thread = threading.Thread(target=_send, daemon=True)
+    thread = threading.Thread(target=_send_via_resend, daemon=True)
     thread.start()
-    logger.info("Confirmation email queued for %s (background thread)", recipient_email)
+    logger.info("Confirmation email queued for %s (Resend, background thread)", recipient_email)
     return True
 
 # ── Design tokens (shadcn/ui zinc) ───────────────────────────────────────────
